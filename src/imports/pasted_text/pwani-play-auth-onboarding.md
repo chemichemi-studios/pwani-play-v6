@@ -1,0 +1,35 @@
+PWANI PLAY — AUTHENTICATION & ONBOARDING MODULE (Enhanced Enterprise Version)
+
+IMPORTANT GENERATION INSTRUCTIONS
+
+This prompt extends the existing PWANI PLAY mobile application and must not create a new app, redesign, or duplicate the design system. Review the entire specification before generating and automatically create any missing screens, user flows, validations, reusable components, interaction states, accessibility features, loading states, empty states, error states, security flows, dialogs, bottom sheets, or supporting screens required for a complete production-ready authentication experience. Preserve the existing navigation, Auto Layout, design tokens, variables, reusable components, responsive layouts, prototype connections, and information architecture.
+
+You are a Senior Product Designer, UX Architect, and Design Systems Lead designing the authentication and onboarding experience for PWANI PLAY – Africa's Creative Infrastructure Platform. Create a high-fidelity, production-ready, fully clickable mobile prototype for Android and iOS using Auto Layout, reusable components, variables, design tokens, responsive constraints, accessibility best practices, and realistic prototype interactions. The experience should feel comparable to Netflix, Spotify, Airbnb, LinkedIn, Notion, Google, and Duolingo while reflecting a modern African identity inspired by the East African coast.
+
+Design a secure, intuitive, welcoming, and low-bandwidth-friendly onboarding experience for Viewers, Creators, Organizations, Production Companies, Educational Institutions, Students, Educators, Government & Cultural Institutions, Brands, Sponsors, Moderators, and Administrators, with role-specific onboarding, permissions, and personalized recommendations.
+
+Navigation Flow: Splash → Welcome → Language Selection → Create Account / Sign In → Phone or Email Verification → Create Password → Profile Setup → Role Selection → Interests → Permissions → Onboarding Carousel → Success → PWANI PLAY Home Dashboard. All screens must be connected with realistic prototype interactions.
+
+Include: Animated Splash Screen, Welcome Screen, Multi-language Selection (English, Kiswahili, French, Portuguese, Arabic), Create Account, Sign In, Forgot Password, OTP Verification, Secure Password Creation, Profile Setup (Profile Photo, Cover Image, Display Name, Username, Bio, Country, City, Preferred Language, Timezone, Website, Social Links, Portfolio Placeholder, Profile Completion Indicator), Role Selection, Interest Selection, Permission Requests, Five-Screen Onboarding Carousel, Success Screen, and seamless transition into the Home Dashboard.
+
+Support registration using Email, Phone Number, with future-ready placeholders for Google, Apple, Facebook, Passkeys, and Magic Links. Allow users to switch registration methods without losing entered data and restore sessions automatically after successful registration.
+
+Implement strong security including Email & Phone Verification, Biometric Login (Face ID/Fingerprint), Trusted Devices, Session Management, Account Recovery, Two-Factor Authentication (future-ready), Device Management, Suspicious Login Detection, Recovery Codes (future-ready), Password Strength Meter, Username Availability Check, Email Validation, Inline Validation, OTP Auto-Fill, Automatic Focus Movement, Countdown Timer, Resend Code, and Change Email/Phone.
+
+After role selection, personalize onboarding: Creators choose creative disciplines and goals; Viewers choose content preferences; Organizations configure organization profiles; Students define learning goals; Educators define teaching interests. Users may add additional roles later through Settings.
+
+Allow users to select interests such as Movies, Series, Music, Podcasts, Photography, Animation, Screenwriting, Directing, Acting, Editing, Cinematography, AI for Creators, Creative Business, and more. Use AI to personalize streaming recommendations, courses, communities, marketplace opportunities, creators to follow, and notifications.
+
+Request permissions progressively (Notifications, Camera, Microphone, Photo Library, Storage, Location when required) with clear explanations, Allow and Not Now actions, and let users manage permissions later from Settings.
+
+Create reusable design system components including Buttons, Inputs, OTP Fields, Password Fields, Checkboxes, Radio Buttons, Cards, Avatars, Profile Cards, Role Cards, Language Items, Interest Chips, Permission Cards, Search Field, Country Selector, Image Picker, Image Cropper, Progress Indicators, Dialogs, Bottom Sheets, Toasts, Snackbars, Success & Error Banners, Loading Overlays, Skeleton Loaders, Top App Bar, and Bottom Navigation. Every component must include Default, Focused, Pressed, Selected, Disabled, Loading, Success, Warning, Error, and Accessibility states.
+
+Design loading screens for Account Creation, Login, OTP Verification, Image Upload, Language Loading, and Profile Saving. Include Empty States (No Internet, No Profile Image, Unable to Load Languages), Error States (Invalid Email, Weak Password, Incorrect OTP, Expired OTP, Duplicate Username, Network Error, Server Error), Offline States (Session Expired, Account Locked, Too Many Attempts, Permission Denied, Verification Pending, Maintenance Mode, Retry Synchronization), and Success States (Account Created, Email Verified, Phone Verified, Password Updated, Profile Saved).
+
+Ensure WCAG 2.2 AA accessibility with high color contrast, screen reader compatibility, dynamic text scaling, large touch targets (minimum 44×44 px), clear focus indicators, keyboard support where applicable, and reduced motion support.
+
+Use Auto Layout on every screen and component, an 8-point spacing grid, reusable color, typography, spacing, radius, elevation, and motion variables (design tokens), designing primarily for 390 × 844 px mobile portrait while adapting cleanly to larger phones.
+
+Prototype realistic interactions including automatic Splash transition, Sign In, Registration, OTP Verification, Password Creation, Profile Setup, Role Selection, Interests, Permissions, Onboarding Carousel, Success, and seamless navigation into the PWANI PLAY Home Dashboard using fade, slide, bottom sheets, loading overlays, progress indicators, and success animations.
+
+Expected Deliverable: Generate a complete enterprise-grade authentication and onboarding experience consisting of approximately 20–25 fully connected mobile screens, with all reusable components, validation flows, security features, accessibility support, Auto Layout, design tokens, interactive states, responsive layouts, offline behavior, and prototype connections. Automatically generate any additional supporting screens, dialogs, confirmation pages, and intermediate steps required to ensure that no functionality described in this specification is omitted.

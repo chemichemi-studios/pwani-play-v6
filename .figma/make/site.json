@@ -1,0 +1,10 @@
+{
+  "description": "Streamline your creative journey with a secure onboarding experience for diverse users, offering content creation, learning, and community connection.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

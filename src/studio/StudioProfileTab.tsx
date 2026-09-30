@@ -2,7 +2,6 @@ import { useState } from 'react'
 
 type Props = {
   name: string
-  onExitStudio: () => void
   onOpenCommunity: () => void
   onOpenAnalytics: () => void
 }
@@ -16,7 +15,7 @@ const ACHIEVEMENTS = [
   { icon: '🌍', label: 'Global Reach', earned: false },
 ]
 
-export default function StudioProfileTab({ name, onExitStudio, onOpenCommunity, onOpenAnalytics }: Props) {
+export default function StudioProfileTab({ name, onOpenCommunity, onOpenAnalytics }: Props) {
   const [editingBio, setEditingBio] = useState(false)
   const [bio, setBio] = useState('East African filmmaker & storyteller. Bringing untold stories to the world through the lens of authentic African experience.')
 
@@ -103,11 +102,6 @@ export default function StudioProfileTab({ name, onExitStudio, onOpenCommunity, 
             </button>
           ))}
         </div>
-
-        {/* Exit studio */}
-        <button onClick={onExitStudio} style={{ width: '100%', padding: '14px', borderRadius: 14, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)', fontSize: 14, cursor: 'pointer', fontWeight: 600, fontFamily: 'Outfit, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-          ← Exit Pwani Studio
-        </button>
       </div>
     </div>
   )

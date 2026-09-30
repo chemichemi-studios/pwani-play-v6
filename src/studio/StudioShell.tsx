@@ -69,7 +69,8 @@ export default function StudioShell({ userName, onExit }: Props) {
     <div style={{ width: '100%', height: '100vh', background: '#0a1628', display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
       {/* Studio header bar (visible on tab screens) */}
       {showNav && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 40, height: 52, background: 'rgba(10,22,40,0.92)', backdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', paddingLeft: 20, paddingRight: 20, gap: 12 }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 40, height: 52, background: 'rgba(10,22,40,0.92)', backdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', paddingLeft: 12, paddingRight: 12, gap: 8 }}>
+          <button onClick={onExit} aria-label="Back to Pwani Play" title="Back to Pwani Play" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, height: 36, padding: '0 8px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'white', fontSize: 12, fontWeight: 600, fontFamily: 'Outfit, sans-serif', whiteSpace: 'nowrap', flexShrink: 0 }}>← Back</button>
           <div style={{ width: 32, height: 32, borderRadius: 10, background: 'linear-gradient(135deg,#1e6091,#f39c12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>🎬</div>
           <div style={{ flex: 1 }}>
             <span style={{ color: 'white', fontSize: 14, fontWeight: 700, fontFamily: 'DM Serif Display, serif', letterSpacing: '0.02em' }}>PWANI STUDIO</span>
@@ -110,7 +111,6 @@ export default function StudioShell({ userName, onExit }: Props) {
         {current.type === 'tab' && tab === 'profile' && (
           <StudioProfileTab
             name={userName}
-            onExitStudio={onExit}
             onOpenCommunity={() => push({ type: 'community' })}
             onOpenAnalytics={openAnalytics}
           />

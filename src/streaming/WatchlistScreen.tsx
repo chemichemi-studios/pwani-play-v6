@@ -6,17 +6,19 @@ type Props = {
   onBack: () => void
   onOpenContent: (item: ContentItem) => void
   onDownload: () => void
+  savedIds?: string[]
+  onRemoveSaved?: (id: string) => void
 }
 
 const SECTIONS = ['All', 'Movies', 'Series', 'Podcasts', 'Continue Later'] as const
 type Section = typeof SECTIONS[number]
 
-export default function WatchlistScreen({ onBack, onOpenContent, onDownload }: Props) {
+export default function WatchlistScreen({ onBack, onOpenContent, onDownload, savedIds = [], onRemoveSaved }: Props) {
   const [activeSection, setActiveSection] = useState<Section>('All')
   const [removed, setRemoved] = useState<string[]>([])
   const [sortBy, setSortBy] = useState<'added' | 'title' | 'rating'>('added')
 
-  const allItems = [CONTENT[3], CONTENT[4], CONTENT[0], CONTENT[5]]
+  const allItems = CONTENT.filter(item => savedIds.includes(item.id))
   const continueItems = CONTENT.filter(c => c.progress !== undefined)
 
   const items = activeSection === 'Continue Later'
@@ -93,7 +95,7 @@ export default function WatchlistScreen({ onBack, onOpenContent, onDownload }: P
                 showProgress={activeSection === 'Continue Later'}
                 onWatch={() => onOpenContent(item)}
                 onDownload={onDownload}
-                onRemove={() => setRemoved(prev => [...prev, item.id])}
+                onRemove={() => { setRemoved(prev => [...prev, item.id]); onRemoveSaved?.(item.id) }}
                 onShare={() => {}}
               />
             ))}

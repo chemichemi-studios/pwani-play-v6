@@ -5,6 +5,7 @@ import {
   type Opportunity, type HubService, type HubOrder, type OppType, type ServiceType,
 } from './data'
 import { CartScreen, CheckoutScreen, OrderConfirmationScreen, type CartLine } from './Checkout'
+import { usePlatform } from '../platform/store'
 
 type Tab = 'discover' | 'marketplace' | 'mywork' | 'post' | 'dashboard'
 type SubScreen =
@@ -550,7 +551,7 @@ function OppDetail({ oppId, onBack, onApply }: { oppId: string; onBack: () => vo
   )
 }
 
-function ApplyScreen({ oppId, onBack }: { oppId: string; onBack: () => void }) {
+function ApplyScreen({ oppId, onBack, onSubmit }: { oppId: string; onBack: () => void; onSubmit: (note: string) => void }) {
   const opp = OPPORTUNITIES.find(o => o.id === oppId) ?? OPPORTUNITIES[0]
   const [note, setNote] = useState('')
   const [done, setDone] = useState(false)
@@ -596,7 +597,7 @@ function ApplyScreen({ oppId, onBack }: { oppId: string; onBack: () => void }) {
 
         <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, margin: '0 0 8px', fontFamily: 'DM Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Cover Note</p>
         <textarea className="input-field" style={{ margin: '0 0 16px', width: '100%', boxSizing: 'border-box', height: 140, resize: 'vertical' }} value={note} onChange={e => setNote(e.target.value)} placeholder="Introduce yourself and explain why you are the right fit for this opportunity…" />
-        <button onClick={() => { if (note.trim()) setDone(true) }} style={{ width: '100%', padding: '15px', borderRadius: 14, background: note.trim() ? 'linear-gradient(90deg,#1e6091,#2980b9)' : 'rgba(255,255,255,0.08)', border: 'none', color: note.trim() ? 'white' : 'rgba(255,255,255,0.3)', fontSize: 15, fontWeight: 700, cursor: note.trim() ? 'pointer' : 'not-allowed', fontFamily: 'Outfit, sans-serif' }}>Submit Application</button>
+        <button onClick={() => { if (note.trim()) { onSubmit(note); setDone(true) } }} style={{ width: '100%', padding: '15px', borderRadius: 14, background: note.trim() ? 'linear-gradient(90deg,#1e6091,#2980b9)' : 'rgba(255,255,255,0.08)', border: 'none', color: note.trim() ? 'white' : 'rgba(255,255,255,0.3)', fontSize: 15, fontWeight: 700, cursor: note.trim() ? 'pointer' : 'not-allowed', fontFamily: 'Outfit, sans-serif' }}>Submit Application</button>
       </div>
     </FullScreen>
   )
@@ -766,6 +767,7 @@ function ContractDetail({ contractId, onBack }: { contractId: string; onBack: ()
 // ─── Shell ────────────────────────────────────────────────────────────────────
 
 export default function HubShell({ onExit }: Props) {
+  const { state: platformState, actions: platformActions } = usePlatform()
   const [tab, setTab] = useState<Tab>('discover')
   const [sub, setSub] = useState<SubScreen>({ id: 'root' })
   const [orders, setOrders] = useState<HubOrder[]>(ORDERS)
@@ -794,6 +796,7 @@ export default function HubShell({ onExit }: Props) {
       }
     })
     setOrders(prev => [...newOrders, ...prev])
+    newOrders.forEach(order => platformActions.addTransaction({ label: `Demo marketplace order: ${order.title}`, amount: order.amount, type: 'debit', status: 'demo-confirmed' }))
     setLastCreatedOrders(newOrders)
     setCart([])
     push({ id: 'order-confirmation' })
@@ -802,7 +805,10 @@ export default function HubShell({ onExit }: Props) {
   const renderSub = () => {
     switch (sub.id) {
       case 'opp-detail':     return <OppDetail oppId={sub.oppId} onBack={back} onApply={() => push({ id: 'apply', oppId: sub.oppId })} />
-      case 'apply':          return <ApplyScreen oppId={sub.oppId} onBack={back} />
+      case 'apply':          return <ApplyScreen oppId={sub.oppId} onBack={back} onSubmit={() => {
+        const opp = OPPORTUNITIES.find(item => item.id === sub.oppId) ?? OPPORTUNITIES[0]
+        platformActions.submitApplication({ opportunityId: opp.id, title: opp.title, organization: opp.org })
+      }} />
       case 'svc-detail':     return <SvcDetail svcId={sub.svcId} onBack={back} onHire={() => push({ id: 'hire', svcId: sub.svcId })} onAddToCart={() => addToCart(sub.svcId)} />
       case 'hire':           return <HireScreen svcId={sub.svcId} onBack={back} />
       case 'cart':           return <CartScreen cart={cart} orders={orders} onQtyChange={setCartQty} onRemove={removeFromCart} onBack={back} onCheckout={() => push({ id: 'checkout' })} />
@@ -813,7 +819,7 @@ export default function HubShell({ onExit }: Props) {
       case 'applications':   return (
         <FullScreen title="My Applications" onBack={back}>
           <div style={{ padding: '0 20px' }}>
-            {APPLICATIONS.map(app => {
+            {[...platformState.applications.map(app => ({ id: app.id, oppTitle: app.title, org: app.organization, appliedDate: app.createdAt.slice(0, 10), status: app.status === 'submitted' ? 'submitted' as const : 'reviewing' as const, oppType: 'job' as const })), ...APPLICATIONS].map(app => {
               const meta = APP_STATUS_META[app.status]
               const typeMeta = OPP_TYPE_META[app.oppType]
               return (

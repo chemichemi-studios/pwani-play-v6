@@ -18,6 +18,7 @@ type Props = {
   onOpenNotifications?: () => void
   onOpenHub?: () => void
   onOpenAI?: () => void
+  onOpenLearn?: () => void
 }
 
 const PLAN_FEATURES = ['Ad-free viewing', 'Offline downloads', '4K & 1080p quality', 'Early access to originals', 'Exclusive content', 'Stream on 3 devices', 'Creator Analytics (Creator role)']
@@ -30,7 +31,7 @@ const PLANS = [
 
 const ROLE_EMOJIS: Record<string, string> = { viewer: '🎬', creator: '🎥', organization: '🏢', student: '🎓', educator: '📚' }
 
-export default function ProfileTab({ name, username, role, coinBalance, onPremium, onOpenWatchlist, onOpenHistory, onOpenAIRecs, onOpenOffline, onOpenStudio, onOpenPassport, onOpenWallet, onOpenConnect, onOpenNotifications, onOpenHub, onOpenAI }: Props) {
+export default function ProfileTab({ name, username, role, coinBalance, onPremium, onOpenWatchlist, onOpenHistory, onOpenAIRecs, onOpenOffline, onOpenStudio, onOpenPassport, onOpenWallet, onOpenConnect, onOpenNotifications, onOpenHub, onOpenAI, onOpenLearn }: Props) {
   const [activeSection, setActiveSection] = useState<null | 'premium' | 'history' | 'watchlist' | 'notifications'>(null)
   const [selectedPlan, setSelectedPlan] = useState('annual')
   const [isPremium] = useState(false)
@@ -249,6 +250,7 @@ export default function ProfileTab({ name, username, role, coinBalance, onPremiu
           { icon: '💳', label: 'Pwani Wallet', action: () => onOpenWallet?.(), highlight: true },
           { icon: '🤝', label: 'Pwani Connect', action: () => onOpenConnect?.(), highlight: true },
           { icon: '🛒', label: 'Pwani Hub', action: () => onOpenHub?.(), highlight: true },
+          { icon: '🎓', label: 'Pwani Learn', action: () => onOpenLearn?.(), highlight: true },
           { icon: '🤖', label: 'Pwani AI', action: () => onOpenAI?.(), highlight: true },
           { icon: '🔔', label: 'Notifications', action: () => onOpenNotifications?.(), highlight: true },
           { icon: '📋', label: 'My Watchlist', action: () => onOpenWatchlist ? onOpenWatchlist() : setActiveSection('watchlist') },

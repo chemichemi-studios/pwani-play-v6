@@ -8,6 +8,10 @@ type Props = {
   onDownload: () => void
   onShare?: () => void
   onOpenCreator?: (id: string) => void
+  isSaved?: boolean
+  isLiked?: boolean
+  onToggleWatchlist?: () => void
+  onToggleLike?: () => void
 }
 
 const REVIEWS = [
@@ -16,10 +20,10 @@ const REVIEWS = [
   { user: 'Fatuma H.', avatar: '🌸', rating: 5, text: 'Binged all 12 episodes in one weekend. The cultural authenticity is refreshing. More please!', likes: 61, date: '2 weeks ago' },
 ]
 
-export default function MovieDetail({ item, onPlay, onBack, onDownload, onShare, onOpenCreator }: Props) {
+export default function MovieDetail({ item, onPlay, onBack, onDownload, onShare, onOpenCreator, isSaved = false, isLiked = false, onToggleWatchlist, onToggleLike }: Props) {
   const [activeTab, setActiveTab] = useState<'episodes' | 'reviews' | 'related' | 'extras'>('episodes')
-  const [inWatchlist, setInWatchlist] = useState(false)
-  const [liked, setLiked] = useState(false)
+  const [inWatchlist, setInWatchlist] = useState(isSaved)
+  const [liked, setLiked] = useState(isLiked)
   const [userRating, setUserRating] = useState(0)
   const related = CONTENT.filter(c => c.id !== item.id && (c.genre === item.genre || c.country === item.country)).slice(0, 3)
   const episodes = item.episodes ? Array.from({ length: Math.min(item.episodes, 6) }, (_, i) => ({
@@ -41,7 +45,7 @@ export default function MovieDetail({ item, onPlay, onBack, onDownload, onShare,
         <div style={{ position: 'absolute', top: 52, left: 20, right: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <button onClick={onBack} style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 12, width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'white', fontSize: 18 }}>←</button>
           <div style={{ display: 'flex', gap: 10 }}>
-            <button onClick={() => setLiked(!liked)} style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)', border: `1px solid ${liked ? 'rgba(231,76,60,0.5)' : 'rgba(255,255,255,0.15)'}`, borderRadius: 12, width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 18 }}>{liked ? '❤️' : '🤍'}</button>
+            <button onClick={() => { setLiked(!liked); onToggleLike?.() }} aria-label={liked ? 'Unlike content' : 'Like content'} style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)', border: `1px solid ${liked ? 'rgba(231,76,60,0.5)' : 'rgba(255,255,255,0.15)'}`, borderRadius: 12, width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 18 }}>{liked ? '❤️' : '🤍'}</button>
             <button onClick={onShare} style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 12, width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 16 }}>📤</button>
           </div>
         </div>
@@ -86,7 +90,7 @@ export default function MovieDetail({ item, onPlay, onBack, onDownload, onShare,
         <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
           <button onClick={() => onPlay(item)} className="btn-primary" style={{ flex: 1 }}>▶ Watch Now</button>
           <button onClick={onDownload} style={{ background: item.downloadable ? 'rgba(26,188,156,0.15)' : 'rgba(255,255,255,0.05)', border: `1px solid ${item.downloadable ? 'rgba(26,188,156,0.4)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 12, padding: '14px 16px', cursor: item.downloadable ? 'pointer' : 'not-allowed', fontSize: 18, opacity: item.downloadable ? 1 : 0.4 }}>💾</button>
-          <button onClick={() => setInWatchlist(!inWatchlist)} style={{ background: inWatchlist ? 'rgba(41,128,185,0.2)' : 'rgba(255,255,255,0.05)', border: `1px solid ${inWatchlist ? 'rgba(41,128,185,0.4)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 12, padding: '14px 16px', cursor: 'pointer', fontSize: 18 }}>{inWatchlist ? '✅' : '➕'}</button>
+          <button onClick={() => { setInWatchlist(!inWatchlist); onToggleWatchlist?.() }} aria-label={inWatchlist ? 'Remove from watchlist' : 'Add to watchlist'} style={{ background: inWatchlist ? 'rgba(41,128,185,0.2)' : 'rgba(255,255,255,0.05)', border: `1px solid ${inWatchlist ? 'rgba(41,128,185,0.4)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 12, padding: '14px 16px', cursor: 'pointer', fontSize: 18 }}>{inWatchlist ? '✅' : '➕'}</button>
         </div>
 
         {/* Synopsis */}

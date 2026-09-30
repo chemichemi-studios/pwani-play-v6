@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   NOTIFS, TASKS, COLLAB_REQUESTS, DOWNLOADS, TIMELINE, AI_SUGGESTIONS,
   MODULE_META, CAT_META, PRIORITY_COLOR,
   type PwaniNotif, type Task, type CollabRequest, type Download,
   type NotifCategory, type NotifModule,
 } from './data'
+import { usePlatform } from '../platform/store'
 
 type Tab = 'all' | 'activity' | 'tasks' | 'settings'
 
@@ -65,10 +66,30 @@ function FullScreen({ title, onBack, children }: { title: string; onBack: () => 
 // ─── All Notifications Tab ────────────────────────────────────────────────────
 
 function AllTab({ onSubScreen }: { onSubScreen: (s: SubScreen) => void }) {
-  const [notifs, setNotifs] = useState<PwaniNotif[]>(NOTIFS.filter(n => !n.archived))
+  const { state: platformState } = usePlatform()
+  const platformNotifications: PwaniNotif[] = platformState.notifications.map(notification => ({
+    id: notification.id,
+    module: notification.module,
+    category: notification.module === 'learn' ? 'learning' : notification.module === 'hub' ? 'jobs' : notification.module === 'wallet' ? 'payments' : 'system',
+    priority: 'medium',
+    icon: notification.module === 'learn' ? '🎓' : notification.module === 'hub' ? '📝' : notification.module === 'wallet' ? '💳' : '🔔',
+    title: notification.title,
+    body: notification.body,
+    time: 'Just now',
+    read: notification.read,
+    archived: false,
+  }))
+  const [notifs, setNotifs] = useState<PwaniNotif[]>(() => [...platformNotifications, ...NOTIFS.filter(n => !n.archived)])
   const [catFilter, setCatFilter] = useState<NotifCategory | 'all'>('all')
   const [search, setSearch] = useState('')
   const [toast, setToast] = useState('')
+
+  useEffect(() => {
+    setNotifs(current => {
+      const local = current.filter(item => !platformState.notifications.some(notification => notification.id === item.id))
+      return [...platformNotifications, ...local]
+    })
+  }, [platformState.notifications])
 
   const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(''), 2400) }
 

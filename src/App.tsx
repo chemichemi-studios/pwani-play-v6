@@ -22,6 +22,8 @@ import GlobalSearch from './streaming/GlobalSearch'
 import ShareSheet from './streaming/components/ShareSheet'
 import { ToastProvider, useToast } from './streaming/components/Toast'
 import { type ContentItem } from './streaming/data'
+import LearnShell from './learn/LearnShell'
+import { PlatformProvider, usePlatform } from './platform/store'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 export type Role = 'viewer' | 'creator' | 'organization' | 'student' | 'educator'
@@ -53,6 +55,7 @@ type Screen =
   | 'notifications'
   | 'hub'
   | 'ai'
+  | 'learn'
 
 interface AppState {
   screen: Screen
@@ -1659,12 +1662,13 @@ type StreamingView =
   | { type: 'search' }
   | { type: 'share'; item: ContentItem }
 
-function StreamingHomeInner({ name, username, role, onOpenStudio, onOpenPassport, onOpenWallet, onOpenConnect, onOpenNotifications, onOpenHub, onOpenAI }: { name: string; username: string; role: Role | null; onOpenStudio?: () => void; onOpenPassport?: () => void; onOpenWallet?: (target?: string) => void; onOpenConnect?: () => void; onOpenNotifications?: () => void; onOpenHub?: () => void; onOpenAI?: () => void }) {
+function StreamingHomeInner({ name, username, role, onOpenStudio, onOpenPassport, onOpenWallet, onOpenConnect, onOpenNotifications, onOpenHub, onOpenAI, onOpenLearn }: { name: string; username: string; role: Role | null; onOpenStudio?: () => void; onOpenPassport?: () => void; onOpenWallet?: (target?: string) => void; onOpenConnect?: () => void; onOpenNotifications?: () => void; onOpenHub?: () => void; onOpenAI?: () => void; onOpenLearn?: () => void }) {
   const [activeTab, setActiveTab] = useState('home')
   const [coinBalance, setCoinBalance] = useState(285)
   const [view, setView] = useState<StreamingView>({ type: 'tabs' })
   const [prevView, setPrevView] = useState<StreamingView>({ type: 'tabs' })
   const toast = useToast()
+  const { state: platformState, actions: platformActions } = usePlatform()
 
   const tabs = [
     { id: 'home',      icon: '🏠', label: 'Home' },
@@ -1683,6 +1687,7 @@ function StreamingHomeInner({ name, username, role, onOpenStudio, onOpenPassport
 
   const handleOpenContent = (item: ContentItem) => push({ type: 'content', item })
   const handlePlay = (item: ContentItem) => {
+    platformActions.recordWatch(item.id, 0.05)
     push({ type: 'player', item })
     setTimeout(() => toast.showCoin(item.coins), 3000)
   }
@@ -1724,6 +1729,10 @@ function StreamingHomeInner({ name, username, role, onOpenStudio, onOpenPassport
           onDownload={() => { navTo('downloads'); toast.show('Added to download queue', 'success') }}
           onShare={() => handleShare(view.item)}
           onOpenCreator={handleOpenCreator}
+          isSaved={platformState.watchlist.includes(view.item.id)}
+          isLiked={platformState.likedContent.includes(view.item.id)}
+          onToggleWatchlist={() => platformActions.toggleWatchlist(view.item.id)}
+          onToggleLike={() => platformActions.toggleLike(view.item.id)}
         />
       </div>
     )
@@ -1750,6 +1759,8 @@ function StreamingHomeInner({ name, username, role, onOpenStudio, onOpenPassport
           onBack={back}
           onOpenContent={handleOpenContent}
           onDownload={() => { navTo('downloads'); toast.show('Added to download queue', 'success') }}
+          savedIds={platformState.watchlist}
+          onRemoveSaved={platformActions.toggleWatchlist}
         />
       </div>
     )
@@ -1850,8 +1861,8 @@ function StreamingHomeInner({ name, username, role, onOpenStudio, onOpenPassport
         )}
         {activeTab === 'profile' && (
           <ProfileTab
-            name={name}
-            username={username}
+            name={platformState.profile.name || name}
+            username={platformState.profile.username || username}
             role={role}
             coinBalance={coinBalance}
             onPremium={() => { toast.show('Opening Premium plans in your Wallet…', 'info'); onOpenWallet?.('subscriptions') }}
@@ -1866,6 +1877,7 @@ function StreamingHomeInner({ name, username, role, onOpenStudio, onOpenPassport
             onOpenNotifications={onOpenNotifications}
             onOpenHub={onOpenHub}
             onOpenAI={onOpenAI}
+            onOpenLearn={onOpenLearn}
           />
         )}
       </div>
@@ -1915,10 +1927,10 @@ function StreamingHomeInner({ name, username, role, onOpenStudio, onOpenPassport
   )
 }
 
-function StreamingHome({ name, username, role, onOpenStudio, onOpenPassport, onOpenWallet, onOpenConnect, onOpenNotifications, onOpenHub, onOpenAI }: { name: string; username: string; role: Role | null; onOpenStudio?: () => void; onOpenPassport?: () => void; onOpenWallet?: (target?: string) => void; onOpenConnect?: () => void; onOpenNotifications?: () => void; onOpenHub?: () => void; onOpenAI?: () => void }) {
+function StreamingHome({ name, username, role, onOpenStudio, onOpenPassport, onOpenWallet, onOpenConnect, onOpenNotifications, onOpenHub, onOpenAI, onOpenLearn }: { name: string; username: string; role: Role | null; onOpenStudio?: () => void; onOpenPassport?: () => void; onOpenWallet?: (target?: string) => void; onOpenConnect?: () => void; onOpenNotifications?: () => void; onOpenHub?: () => void; onOpenAI?: () => void; onOpenLearn?: () => void }) {
   return (
     <ToastProvider>
-      <StreamingHomeInner name={name} username={username} role={role} onOpenStudio={onOpenStudio} onOpenPassport={onOpenPassport} onOpenWallet={onOpenWallet} onOpenConnect={onOpenConnect} onOpenNotifications={onOpenNotifications} onOpenHub={onOpenHub} onOpenAI={onOpenAI} />
+      <StreamingHomeInner name={name} username={username} role={role} onOpenStudio={onOpenStudio} onOpenPassport={onOpenPassport} onOpenWallet={onOpenWallet} onOpenConnect={onOpenConnect} onOpenNotifications={onOpenNotifications} onOpenHub={onOpenHub} onOpenAI={onOpenAI} onOpenLearn={onOpenLearn} />
     </ToastProvider>
   )
 }
@@ -1960,6 +1972,7 @@ export default function App() {
   const { screen, language, role, interests, otpPurpose, name } = state
 
   return (
+    <PlatformProvider>
     <div style={{ maxWidth: 430, margin: '0 auto', minHeight: '100vh', position: 'relative', overflow: 'hidden', background: '#0a1628' }}>
       {screen === 'splash' && <SplashScreen onDone={() => go('welcome')} />}
       {screen === 'welcome' && <WelcomeScreen onGetStarted={() => go('language')} onSignIn={() => go('signin')} />}
@@ -1999,7 +2012,7 @@ export default function App() {
       {screen === 'account-setup' && <AccountSetupScreen onDone={() => go(state.postSetup)} />}
       {screen === 'locked' && <AccountLockedScreen onBack={() => go('signin')} onSupport={() => go('signin')} />}
       {screen === 'offline-auth' && <OfflineAuthScreen onRetry={() => go('signin')} onBack={() => go('welcome')} />}
-      {screen === 'home' && <StreamingHome name={name} username={state.username} role={role} onOpenStudio={() => go('studio')} onOpenPassport={() => go('passport')} onOpenWallet={(target) => go('wallet', { walletTarget: target || '' })} onOpenConnect={() => go('connect')} onOpenNotifications={() => go('notifications')} onOpenHub={() => go('hub')} onOpenAI={() => go('ai')} />}
+      {screen === 'home' && <StreamingHome name={name} username={state.username} role={role} onOpenStudio={() => go('studio')} onOpenPassport={() => go('passport')} onOpenWallet={(target) => go('wallet', { walletTarget: target || '' })} onOpenConnect={() => go('connect')} onOpenNotifications={() => go('notifications')} onOpenHub={() => go('hub')} onOpenAI={() => go('ai')} onOpenLearn={() => go('learn')} />}
       {screen === 'studio' && <StudioShell userName={name || 'Creator'} onExit={() => go('home')} />}
       {screen === 'passport' && <PassportShell onExit={() => go('home')} />}
       {screen === 'wallet' && <WalletShell onExit={() => go('home', { walletTarget: '' })} initialScreen={(state.walletTarget || 'root') as any} />}
@@ -2007,6 +2020,8 @@ export default function App() {
       {screen === 'notifications' && <NotificationsShell onExit={() => go('home')} />}
       {screen === 'hub' && <HubShell onExit={() => go('home')} />}
       {screen === 'ai' && <AIShell onExit={() => go('home')} />}
+      {screen === 'learn' && <LearnShell onExit={() => go('home')} />}
     </div>
+    </PlatformProvider>
   )
 }

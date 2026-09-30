@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { MOCK_PROFILE } from './data'
+import { usePlatform } from '../platform/store'
 
 type Props = { onBack: () => void; onSaved: () => void }
 
@@ -21,9 +22,10 @@ const PROFESSION_OPTIONS = [
 
 export default function ProfileEditor({ onBack, onSaved }: Props) {
   const p = MOCK_PROFILE
-  const [name, setName] = useState(p.name)
-  const [username, setUsername] = useState(p.username)
-  const [bio, setBio] = useState(p.bio)
+  const { state: platformState, actions: platformActions } = usePlatform()
+  const [name, setName] = useState(platformState.profile.name || p.name)
+  const [username, setUsername] = useState(platformState.profile.username || p.username)
+  const [bio, setBio] = useState(platformState.profile.bio || p.bio)
   const [pronouns, setPronouns] = useState(p.pronouns ?? '')
   const [website, setWebsite] = useState(p.website ?? '')
   const [profession, setProfession] = useState(p.primaryProfession)
@@ -40,6 +42,7 @@ export default function ProfileEditor({ onBack, onSaved }: Props) {
 
   const save = () => {
     setSaving(true)
+    platformActions.setProfile({ name, username, bio })
     setTimeout(() => { setSaving(false); setSaved(true); setTimeout(onSaved, 800) }, 1200)
   }
 

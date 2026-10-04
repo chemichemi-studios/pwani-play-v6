@@ -11,3 +11,8 @@ logs/
 *.log
 .claude-replay.*
 .tmp-*
+
+# Environment variables
+.env
+.env.*
+!.env.example

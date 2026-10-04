@@ -1,0 +1,25 @@
+# Phase 1: Fix Plan
+
+Order follows Phase 2 priority. File lists are expected surfaces and may narrow after approval and focused verification. No source edits are included in this plan.
+
+| Order / package | Likely files | Acceptance criteria | Risk | Size |
+|---|---|---|---|---|
+| WP1 — Safety foundation (N1–N4, N6–N7, N9, N11–N15) | `src/ai/data.ts`, `src/ai/AIShell.tsx`; proposed `src/ai/adapters/*`, `src/ai/context.ts`, `src/ai/actions.ts`, tests | Remove or visibly mark ungrounded demo records as sample; shared response model does not claim ecosystem facts without sources; action proposals cannot mutate modules directly; specific error/offline behavior preserves drafts; permission/scoped-context contract has denial tests. | High: no backend/auth/permission service exists. Adding permission enforcement changes auth/permission logic and is a Working Rule 7 approval gate. Do not invent authorization policy or pretend a client check is server-side. | L |
+| WP2 — Core platform (17A) | `src/ai/AIShell.tsx`, `src/ai/data.ts`, `src/App.tsx`; proposed shared AI context/response components | Connect core home/chat/context/source models; real entry points preserve origin; generated answers expose source/uncertainty consistently. | High: requires real data contracts and navigation ownership across app. | L |
+| WP3 — Memory, trust, governance (17D) | AI shell/data; platform persistence only after data scope approved | Memory is opt-in, user-owned, typed/scoped, persistent, editable/deletable; trust, permissions and audit views reflect real records; no fake success toasts. | High: storage, privacy and account semantics absent; deleting data/settings can be destructive and authorization-adjacent. | L |
+| WP4 — Orchestration and automation (17D, 17C §75–79, §94–95) | Proposed `src/ai/orchestrator.ts`, workflow/action modules, UI | Router only invokes authorized adapters; all consequential operations pause for human approval; default automation is Suggestions Only; audit and action receipts have tested outcomes. | High: no AI provider, workflow engine or authorization API; do not create a parallel transaction system. | L |
+| WP5 — Multimodal (17A §17–24, 17D §26–40) | `src/ai/AIShell.tsx`; proposed upload/adapters and tests | Real attachment status/error states, extracted-vs-interpreted labels, voice transcript and explicit confirmation; unavailable services preserve input and drafts. | Medium-high: provider/backend unavailable; do not claim actual analysis. | L |
+| WP6 — Creative intelligence (17B) | AI screens/data; Studio/project interfaces | AI revisions are drafts, creator-owned and versioned; research sources and cultural uncertainty visible; project canon scope enforced. | High: project record APIs and authorization are absent. | L |
+| WP7 — Business/ecosystem intelligence (17C) | AI screens; wallet/hub/learn/connect/studio module adapters | Insights/forecasts cite records and assumptions; listing/application/dispute/financial actions require module preview and approval; no fabricated availability/balances/opportunities. | High: authoritative data interfaces and permission policy are absent. | L |
+| WP8 — Planning, personalization, help, onboarding and admin (17D) | `src/ai/AIShell.tsx`, `src/App.tsx`, settings and supporting modules | User-controlled preferences and useful help/onboarding; no fabricated metrics; admin features only appear with real authorized role and data. | High: identity/admin/retention requirements unmodeled. | L |
+| WP9 — Polish and verification | AI UI/tests/docs; `package.json` only if approved for test tooling | Responsive/accessibility checks; connected journeys; automated tests for action, permissions, isolation, response, memory, voice, offline and orchestration; Phase 3 baseline comparison and journey report. | Medium: current project has no test runner or browser automation configured. | L |
+
+## Approval gates and constraints
+
+1. **Permission/auth logic:** WP1 explicitly needs permission-aware data access, but this prototype has no authenticated server or authorization API. Per Working Rule 7, pause before changing auth/permission logic. A client-only role gate cannot satisfy N2 and must not be represented as server enforcement. Ask for an approved permission source/backend contract before implementing that part.
+2. **Backend/model availability:** no AI endpoint or external model client is present. Until one is supplied, use clearly labeled sample data or say “Not enough information”; do not present mock data as real user data.
+3. No database/schema migration, breaking dependency upgrade or file deletion is proposed.
+
+## Phase 2 entry decision
+
+The audit identifies high-risk N2/N3 failures and no existing backend boundary to enforce them. The requested foundational permission change meets the explicit stop-and-ask condition; do not proceed into authorization changes until the user chooses the permission source/contract. Safe containment of fabricated claims and corrections to false-success UI can be done without changing auth logic after approval to proceed with non-auth work.

@@ -306,6 +306,16 @@ const TOOL_FALLBACK_STEPS: Record<AITool, string[]> = {
 }
 
 export function generateAIResponse(tool: AITool, prompt: string): string {
+  const unavailableDataPrompts = new Set([
+    'Find grants that match my profile',
+    'Review my portfolio strengths',
+    'Analyse my content performance',
+    'Show me the best jobs this week',
+    'What casting calls fit my skills?',
+  ])
+  if (['portfolio', 'analytics', 'opportunity'].includes(tool) || unavailableDataPrompts.has(prompt)) {
+    return 'Not enough information. This prototype is not connected to authorized profile, analytics, grant, or job records. No account data was used.'
+  }
   const exact = AI_RESPONSES[prompt]
   if (exact) return exact
   const opener = TOOL_FALLBACK_OPENERS[tool](prompt)

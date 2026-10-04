@@ -21,6 +21,7 @@ function FullScreen({ title, badge, onBack, actions, children }: { title: string
       <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 10, background: 'rgba(10,22,40,0.97)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 12 }}>
         <button onClick={onBack} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 16, color: 'white' }}>←</button>
         <h2 style={{ fontFamily: 'DM Serif Display, serif', fontSize: 19, color: 'white', margin: 0, flex: 1 }}>{title}</h2>
+        <span style={{ fontSize: 10, padding: '3px 8px', borderRadius: 100, background: 'rgba(243,156,18,0.12)', color: '#f5b041', fontWeight: 700, border: '1px solid rgba(243,156,18,0.25)' }}>Sample data</span>
         {badge && <span style={{ fontSize: 11, padding: '3px 9px', borderRadius: 100, background: 'rgba(93,173,226,0.12)', color: '#5dade2', fontWeight: 700, border: '1px solid rgba(93,173,226,0.2)' }}>{badge}</span>}
         {actions}
       </div>
@@ -164,7 +165,7 @@ function ChatInterface({ tool, onBack, autoSend }: { tool: AITool; onBack: () =>
       <div style={{ padding: '10px 16px 0' }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 100, padding: '5px 12px' }}>
           <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#1abc9c' }} />
-          Using: {TOOL_CONTEXT[tool]}
+          Context: Sample data only. No account records are connected.
         </span>
       </div>
       {/* Messages */}
@@ -382,7 +383,7 @@ function MemoryScreen({ onBack }: { onBack: () => void }) {
       {toast && <div style={{ position: 'fixed', top: 72, left: '50%', transform: 'translateX(-50%)', zIndex: 400, background: '#1abc9c', color: 'white', padding: '8px 18px', borderRadius: 12, fontWeight: 700, fontSize: 12, whiteSpace: 'nowrap' }}>{toast}</div>}
       <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px 100px' }}>
         <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12, margin: '0 0 18px', lineHeight: 1.5 }}>
-          Pwani AI uses these to personalise responses. Nothing here is shared outside your account. You can remove anything at any time.
+          Sample memory only. No personal memory is connected or persisted in this prototype.
         </p>
         {categories.map(cat => (
           <div key={cat} style={{ marginBottom: 20 }}>
@@ -642,7 +643,7 @@ function AISettingsTab({ onMemory }: { onMemory: () => void }) {
         <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, fontFamily: 'DM Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 12px' }}>Data & Privacy</p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {['Export my AI data', 'Clear conversation history', 'Reset AI preferences'].map((label, i) => (
-            <button key={label} onClick={() => showToast(`${label} — done`)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', borderRadius: 14, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', color: i === 1 ? '#e74c3c' : 'rgba(255,255,255,0.7)', fontSize: 14, cursor: 'pointer', fontFamily: 'Outfit, sans-serif' }}>
+            <button key={label} onClick={() => showToast('Prototype only — no data was changed.')} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', borderRadius: 14, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', color: i === 1 ? '#e74c3c' : 'rgba(255,255,255,0.7)', fontSize: 14, cursor: 'pointer', fontFamily: 'Outfit, sans-serif' }}>
               {label} <span style={{ fontSize: 18, color: 'rgba(255,255,255,0.2)' }}>›</span>
             </button>
           ))}
@@ -695,6 +696,7 @@ export default function AIShell({ onExit }: Props) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg,#5dade2,#2980b9)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>🤖</div>
               <span style={{ fontFamily: 'DM Serif Display, serif', fontSize: 18, color: 'white' }}>Pwani AI</span>
+              <span style={{ fontSize: 9, padding: '3px 6px', borderRadius: 8, color: '#f5b041', background: 'rgba(243,156,18,0.12)', border: '1px solid rgba(243,156,18,0.25)', fontWeight: 700 }}>SAMPLE DATA</span>
             </div>
             <button onClick={() => setPaletteOpen(true)} title="Search (⌘K)" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 15, color: 'white' }}>🔎</button>
           </div>

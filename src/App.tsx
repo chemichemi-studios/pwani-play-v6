@@ -24,9 +24,10 @@ import { ToastProvider, useToast } from './streaming/components/Toast'
 import { type ContentItem } from './streaming/data'
 import LearnShell from './learn/LearnShell'
 import { PlatformProvider, usePlatform } from './platform/store'
+import { AuthProvider, useAuth, type AppRole, type ContactMethod, type ProfileInput } from './auth/AuthProvider'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-export type Role = 'viewer' | 'creator' | 'organization' | 'student' | 'educator'
+export type Role = AppRole
 
 type Screen =
   | 'splash'
@@ -57,13 +58,26 @@ type Screen =
   | 'ai'
   | 'learn'
 
+const PROTECTED_SCREENS: Screen[] = [
+  'studio',
+  'passport',
+  'wallet',
+  'connect',
+  'notifications',
+  'hub',
+  'ai',
+  'learn',
+]
+
 interface AppState {
   screen: Screen
   language: string
   role: Role | null
   interests: string[]
-  fromForgot: boolean
-  otpPurpose: 'register' | 'signin' | 'forgot'
+  authMethod: ContactMethod
+  roleFocus: string[]
+  organizationName: string
+  organizationType: string
   name: string
   username: string
   email: string
@@ -486,14 +500,16 @@ function LoadingOverlay({ message, sub }: { message: string; sub?: string }) {
 }
 
 // Screen 4 — Register
-function RegisterScreen({ onRegister, onSignIn, onBack }: {
-  onRegister: (name: string, email: string) => void; onSignIn: () => void; onBack: () => void
+function RegisterScreen({ onRegister, onOAuth, onSignIn, onBack }: {
+  onRegister: (input: { name: string; username: string; method: ContactMethod; contact: string; password: string }) => Promise<boolean>
+  onOAuth: (provider: 'google' | 'apple' | 'facebook') => Promise<void>
+  onSignIn: () => void; onBack: () => void
 }) {
   const [name, setName] = useState('')
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [confirm, setConfirm] = useState('')
+  const passwordRef = useRef<HTMLInputElement>(null)
+  const confirmRef = useRef<HTMLInputElement>(null)
   const [showPass, setShowPass] = useState(false)
   const [terms, setTerms] = useState(false)
   const [privacy, setPrivacy] = useState(false)
@@ -502,34 +518,48 @@ function RegisterScreen({ onRegister, onSignIn, onBack }: {
   const [loading, setLoading] = useState(false)
   const [loadingMsg, setLoadingMsg] = useState({ message: 'Creating your account…', sub: 'Setting up your Creative Passport' })
 
-  const handleSocial = (label: string) => {
-    setLoadingMsg({ message: `Continuing with ${label}…`, sub: 'Connecting to your account' })
+  const handleSocial = async (provider: 'google' | 'apple' | 'facebook') => {
+    setLoadingMsg({ message: `Continuing with ${provider}…`, sub: 'Connecting to your account' })
     setLoading(true)
-    setTimeout(() => {
+    try {
+      await onOAuth(provider)
+    } catch (error) {
+      setErrors(current => ({ ...current, form: error instanceof Error ? error.message : 'Unable to continue with this provider.' }))
       setLoading(false)
-      onRegister(name || `${label} User`, email || `demo+${label.toLowerCase()}@pwaniplay.com`)
-    }, 1400)
+    }
   }
 
   const validate = () => {
     const e: Record<string, string> = {}
     if (!name.trim()) e.name = 'Full name is required'
-    if (!username.trim()) e.username = 'Username is required'
-    if (username.length > 2 && username.length < 3) e.username = 'Username must be at least 3 characters'
+    if (!/^[a-zA-Z0-9_]{3,30}$/.test(username.trim().replace(/^@+/, ''))) {
+      e.username = 'Use 3–30 letters, numbers, or underscores for your username'
+    }
     if (method === 'email' && !/\S+@\S+\.\S+/.test(email)) e.email = 'Enter a valid email address'
     if (method === 'phone' && !/^\+?[\d\s\-()]{7,}$/.test(email)) e.email = 'Enter a valid phone number'
-    if (password.length < 8) e.password = 'Password must be at least 8 characters'
-    if (password !== confirm) e.confirm = 'Passwords do not match'
+    if ((passwordRef.current?.value.length ?? 0) < 8) e.password = 'Password must be at least 8 characters'
+    if (passwordRef.current?.value !== confirmRef.current?.value) e.confirm = 'Passwords do not match'
     if (!terms) e.terms = 'Please accept the Terms of Service'
     setErrors(e)
     return Object.keys(e).length === 0
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validate()) return
     setLoadingMsg({ message: 'Creating your account…', sub: 'Setting up your Creative Passport' })
     setLoading(true)
-    setTimeout(() => { setLoading(false); onRegister(name, email) }, 1600)
+    try {
+      await onRegister({
+        name,
+        username,
+        method,
+        contact: email,
+        password: passwordRef.current?.value ?? '',
+      })
+    } catch (error) {
+      setErrors(current => ({ ...current, form: error instanceof Error ? error.message : 'Unable to create your account.' }))
+      setLoading(false)
+    }
   }
 
   return (
@@ -566,7 +596,7 @@ function RegisterScreen({ onRegister, onSignIn, onBack }: {
             {username.length > 2 && <span style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', color: '#1abc9c', fontSize: 16 }}>✓</span>}
           </div>
           {username.length > 2 && !errors.username && (
-            <p style={{ color: '#1abc9c', fontSize: 12, margin: '4px 0 0' }}>✓ @{username} is available</p>
+            <p style={{ color: '#1abc9c', fontSize: 12, margin: '4px 0 0' }}>✓ Username format looks valid; uniqueness is checked when saved.</p>
           )}
           {errors.username && <p style={{ color: '#e74c3c', fontSize: 12, margin: '4px 0 0' }}>⚠ {errors.username}</p>}
         </div>
@@ -576,14 +606,13 @@ function RegisterScreen({ onRegister, onSignIn, onBack }: {
         </div>
         <div>
           <div style={{ position: 'relative' }}>
-            <input className="input-field" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} type={showPass ? 'text' : 'password'} style={{ paddingRight: 48 }} />
+            <input ref={passwordRef} className="input-field" placeholder="Password" type={showPass ? 'text' : 'password'} autoComplete="new-password" style={{ paddingRight: 48 }} />
             <button onClick={() => setShowPass(!showPass)} style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.5)', fontSize: 16 }}>{showPass ? '🙈' : '👁️'}</button>
           </div>
-          {password && <PasswordStrength password={password} />}
           {errors.password && <p style={{ color: '#e74c3c', fontSize: 12, margin: '4px 0 0' }}>⚠ {errors.password}</p>}
         </div>
         <div>
-          <input className="input-field" placeholder="Confirm Password" value={confirm} onChange={e => setConfirm(e.target.value)} type="password" />
+          <input ref={confirmRef} className="input-field" placeholder="Confirm Password" type="password" autoComplete="new-password" />
           {errors.confirm && <p style={{ color: '#e74c3c', fontSize: 12, margin: '4px 0 0' }}>⚠ {errors.confirm}</p>}
         </div>
 
@@ -606,7 +635,8 @@ function RegisterScreen({ onRegister, onSignIn, onBack }: {
           {errors.terms && <p style={{ color: '#e74c3c', fontSize: 12, margin: 0 }}>⚠ {errors.terms}</p>}
         </div>
 
-        <button className="btn-primary" onClick={handleSubmit} style={{ marginTop: 8 }}>Create Account</button>
+        {errors.form && <p role="alert" style={{ color: '#ec7063', fontSize: 13, margin: 0 }}>{errors.form}</p>}
+        <button className="btn-primary" onClick={handleSubmit} disabled={loading} style={{ marginTop: 8, opacity: loading ? 0.6 : 1 }}>Create Account</button>
 
         <p style={{ textAlign: 'center', fontSize: 14, color: 'rgba(255,255,255,0.45)', margin: 0 }}>
           Already have an account?{' '}
@@ -619,83 +649,81 @@ function RegisterScreen({ onRegister, onSignIn, onBack }: {
           <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.1)' }} />
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
-          {[{ icon: 'G', label: 'Google' }, { icon: '🍎', label: 'Apple' }, { icon: 'f', label: 'Facebook' }].map(s => (
-            <button key={s.label} className="social-btn" onClick={() => handleSocial(s.label)} style={{ flex: 1, cursor: 'pointer' }}>
+          {([{ icon: 'G', label: 'Google', provider: 'google' }, { icon: '🍎', label: 'Apple', provider: 'apple' }, { icon: 'f', label: 'Facebook', provider: 'facebook' }] as const).map(s => (
+            <button key={s.label} className="social-btn" onClick={() => handleSocial(s.provider)} style={{ flex: 1, cursor: 'pointer' }}>
               <span style={{ fontSize: 16 }}>{s.icon}</span>
               <span>{s.label}</span>
             </button>
           ))}
         </div>
-        {/* Passkey + Magic Link */}
-        <div style={{ display: 'flex', gap: 10 }}>
-          {[
-            { icon: '🔑', label: 'Passkey' },
-            { icon: '✉️', label: 'Magic Link' },
-          ].map(s => (
-            <button key={s.label} className="social-btn" onClick={() => handleSocial(s.label)} style={{ flex: 1, cursor: 'pointer' }}>
-              <span style={{ fontSize: 16 }}>{s.icon}</span>
-              <span>{s.label}</span>
-            </button>
-          ))}
-        </div>
+        <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12, textAlign: 'center', margin: 0 }}>
+          Passkey sign-up is not configured yet.
+        </p>
       </div>
     </div>
   )
 }
 
 // Screen 5 — Sign In
-function SignInScreen({ onSignIn, onRegister, onForgot, onBack, onLocked }: {
-  onSignIn: () => void; onRegister: () => void; onForgot: () => void; onBack: () => void; onLocked?: () => void
+function SignInScreen({ onSignIn, onOAuth, onMagicLink, onRegister, onForgot, onBack }: {
+  onSignIn: (contact: string, password: string) => Promise<void>
+  onOAuth: (provider: 'google' | 'apple' | 'facebook') => Promise<void>
+  onMagicLink: (email: string) => Promise<void>
+  onRegister: () => void; onForgot: () => void; onBack: () => void
 }) {
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const passwordRef = useRef<HTMLInputElement>(null)
   const [showPass, setShowPass] = useState(false)
-  const [remember, setRemember] = useState(false)
   const [error, setError] = useState('')
-  const [attempts, setAttempts] = useState(0)
   const [loading, setLoading] = useState(false)
   const [showBiometric, setShowBiometric] = useState(false)
   const [loadingMsg, setLoadingMsg] = useState({ message: 'Signing you in…', sub: 'Restoring your session' })
   const [magicSent, setMagicSent] = useState(false)
 
-  const handleSocial = (label: string) => {
-    setLoadingMsg({ message: `Continuing with ${label}…`, sub: 'Verifying your account' })
+  const handleSocial = async (provider: 'google' | 'apple' | 'facebook') => {
+    setLoadingMsg({ message: `Continuing with ${provider}…`, sub: 'Verifying your account' })
     setLoading(true)
-    setTimeout(() => { setLoading(false); onSignIn() }, 1300)
+    try {
+      await onOAuth(provider)
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : 'Unable to continue with this provider.')
+      setLoading(false)
+    }
   }
 
-  const handleMagicLink = () => {
-    if (!email) { setError('Enter your email or phone above first'); return }
+  const handleMagicLink = async () => {
+    if (!email.includes('@')) { setError('Enter a valid email address above first'); return }
     setError('')
-    setMagicSent(true)
     setLoadingMsg({ message: 'Sending magic link…', sub: `Check ${email} for a sign-in link` })
     setLoading(true)
-    setTimeout(() => { setLoading(false); onSignIn() }, 1800)
+    try {
+      await onMagicLink(email)
+      setMagicSent(true)
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : 'Unable to send the sign-in link.')
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    const password = passwordRef.current?.value ?? ''
     if (!email || !password) { setError('Please fill in all fields'); return }
     setError('')
     setLoadingMsg({ message: 'Signing you in…', sub: 'Restoring your session' })
     setLoading(true)
-    setTimeout(() => {
+    try {
+      await onSignIn(email, password)
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : 'Unable to sign in.')
+    } finally {
       setLoading(false)
-      const newAttempts = attempts + 1
-      // Demo: wrong password simulation if password is "wrong"
-      if (password === 'wrong') {
-        setAttempts(newAttempts)
-        if (newAttempts >= 3) { onLocked?.(); return }
-        setError(`Incorrect password. ${3 - newAttempts} attempt${3 - newAttempts !== 1 ? 's' : ''} remaining.`)
-        return
-      }
-      onSignIn()
-    }, 1400)
+    }
   }
 
   const handleBiometric = () => {
     setShowBiometric(false)
-    setLoading(true)
-    setTimeout(() => { setLoading(false); onSignIn() }, 1200)
+    setError('Biometric sign-in is not configured yet. Use your password or a sign-in link.')
   }
 
   return (
@@ -731,7 +759,7 @@ function SignInScreen({ onSignIn, onRegister, onForgot, onBack, onLocked }: {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <input className="input-field" placeholder="Email or Phone Number" value={email} onChange={e => { setEmail(e.target.value); setError('') }} />
         <div style={{ position: 'relative' }}>
-          <input className="input-field" placeholder="Password" value={password} onChange={e => { setPassword(e.target.value); setError('') }} type={showPass ? 'text' : 'password'} style={{ paddingRight: 48 }} />
+          <input ref={passwordRef} className="input-field" placeholder="Password" autoComplete="current-password" onChange={() => setError('')} type={showPass ? 'text' : 'password'} style={{ paddingRight: 48 }} />
           <button onClick={() => setShowPass(!showPass)} style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.5)', fontSize: 16 }}>{showPass ? '🙈' : '👁️'}</button>
         </div>
 
@@ -741,21 +769,11 @@ function SignInScreen({ onSignIn, onRegister, onForgot, onBack, onLocked }: {
           </div>
         )}
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
-            <div onClick={() => setRemember(!remember)} style={{
-              width: 22, height: 22, borderRadius: 6,
-              border: `2px solid ${remember ? '#2980b9' : 'rgba(255,255,255,0.2)'}`,
-              background: remember ? '#2980b9' : 'transparent',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              transition: 'all 0.2s',
-            }}>{remember && <span style={{ color: 'white', fontSize: 13 }}>✓</span>}</div>
-            <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)' }}>Remember me</span>
-          </label>
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <button onClick={onForgot} style={{ background: 'none', border: 'none', color: '#2980b9', cursor: 'pointer', fontSize: 14, fontWeight: 600 }}>Forgot password?</button>
         </div>
 
-        <button className="btn-primary" onClick={handleSubmit}>Sign In</button>
+        <button className="btn-primary" onClick={handleSubmit} disabled={loading}>Sign In</button>
 
         {/* Biometric CTA */}
         <button
@@ -776,8 +794,8 @@ function SignInScreen({ onSignIn, onRegister, onForgot, onBack, onLocked }: {
           <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.1)' }} />
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
-          {[{ icon: 'G', label: 'Google' }, { icon: '🍎', label: 'Apple' }, { icon: '🔑', label: 'Passkey' }].map(s => (
-            <button key={s.label} className="social-btn" onClick={() => handleSocial(s.label)} style={{ flex: 1, cursor: 'pointer' }}>
+          {([{ icon: 'G', label: 'Google', provider: 'google' }, { icon: '🍎', label: 'Apple', provider: 'apple' }, { icon: 'f', label: 'Facebook', provider: 'facebook' }] as const).map(s => (
+            <button key={s.label} className="social-btn" onClick={() => handleSocial(s.provider)} style={{ flex: 1, cursor: 'pointer' }}>
               <span>{s.icon}</span><span>{s.label}</span>
             </button>
           ))}
@@ -792,10 +810,11 @@ function SignInScreen({ onSignIn, onRegister, onForgot, onBack, onLocked }: {
 }
 
 // Screen 6 — OTP
-function OTPScreen({ purpose, email, onVerify, onBack, onChangeContact }: {
-  purpose: 'register' | 'signin' | 'forgot'
-  email?: string
-  onVerify: () => void
+function OTPScreen({ contact, method, onVerify, onResend, onBack, onChangeContact }: {
+  contact: string
+  method: ContactMethod
+  onVerify: (token: string) => Promise<void>
+  onResend: () => Promise<void>
   onBack: () => void
   onChangeContact?: () => void
 }) {
@@ -826,13 +845,19 @@ function OTPScreen({ purpose, email, onVerify, onBack, onChangeContact }: {
     setDigits(next)
     setError('')
     if (val && i < 5) refs.current[i + 1]?.focus()
-    if (next.every(d => d)) {
-      if (next.join('') === '123456') {
-        setLoading(true)
-        setTimeout(() => { setLoading(false); onVerify() }, 900)
-      } else {
-        setError('Incorrect code. Use 123456 for demo.')
-      }
+    if (next.every(d => d)) void submitOtp(next.join(''))
+  }
+
+  const submitOtp = async (token: string) => {
+    if (token.length !== 6) { setError('Enter the 6-digit code.'); return }
+    setLoading(true)
+    setError('')
+    try {
+      await onVerify(token)
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : 'Unable to verify this code.')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -840,7 +865,20 @@ function OTPScreen({ purpose, email, onVerify, onBack, onChangeContact }: {
     if (e.key === 'Backspace' && !digits[i] && i > 0) refs.current[i - 1]?.focus()
   }
 
-  const handleResend = () => { setExpired(false); setCountdown(60); setDigits(['','','','','','']); setError('') }
+  const handleResend = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      await onResend()
+      setExpired(false)
+      setCountdown(60)
+      setDigits(['', '', '', '', '', ''])
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : 'Unable to resend the code.')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div style={{ minHeight: '100vh', background: '#0a1628', padding: '56px 24px 40px' }}>
@@ -850,7 +888,7 @@ function OTPScreen({ purpose, email, onVerify, onBack, onChangeContact }: {
         <div>
           <h2 style={{ fontFamily: 'DM Serif Display, serif', fontSize: 26, color: 'white', margin: 0 }}>Verify Code</h2>
           <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', margin: '4px 0 0' }}>
-            {purpose === 'register' ? 'Sent to your email/phone' : 'Enter the code we sent you'}
+            Sent to your {method}
           </p>
         </div>
       </div>
@@ -867,9 +905,13 @@ function OTPScreen({ purpose, email, onVerify, onBack, onChangeContact }: {
           <div>
             <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 15, lineHeight: 1.5, margin: 0 }}>
               Enter the 6-digit code sent to<br />
-              <strong style={{ color: 'white' }}>{email || 'demo@pwaniplay.com'}</strong>
+              <strong style={{ color: 'white' }}>{contact}</strong>
             </p>
-            <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12, fontFamily: 'DM Mono, monospace', marginTop: 8 }}>Use 123456 for demo</p>
+            {method === 'email' && (
+              <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, lineHeight: 1.5, margin: '10px 0 0' }}>
+                You can also open the confirmation link in this browser.
+              </p>
+            )}
           </div>
         )}
       </div>
@@ -919,24 +961,34 @@ function OTPScreen({ purpose, email, onVerify, onBack, onChangeContact }: {
         </button>
       </div>
 
-      {!expired && <button className="btn-primary" onClick={onVerify}>Verify →</button>}
+      {!expired && <button className="btn-primary" onClick={() => void submitOtp(digits.join(''))}>Verify →</button>}
       {expired && <button className="btn-primary" onClick={handleResend}>Request New Code</button>}
     </div>
   )
 }
 
 // Screen 7/8 — Password
-function PasswordScreen({ title, onDone, onBack }: { title: string; onDone: () => void; onBack: () => void }) {
-  const [password, setPassword] = useState('')
-  const [confirm, setConfirm] = useState('')
+function PasswordScreen({ title, onDone, onBack }: { title: string; onDone: (password: string) => Promise<void>; onBack: () => void }) {
+  const passwordRef = useRef<HTMLInputElement>(null)
+  const confirmRef = useRef<HTMLInputElement>(null)
   const [showPass, setShowPass] = useState(false)
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  const handleDone = () => {
+  const handleDone = async () => {
+    const password = passwordRef.current?.value ?? ''
+    const confirm = confirmRef.current?.value ?? ''
     if (password.length < 8) { setError('Password must be at least 8 characters'); return }
     if (password !== confirm) { setError('Passwords do not match'); return }
     setError('')
-    onDone()
+    setLoading(true)
+    try {
+      await onDone(password)
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : 'Unable to update your password.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -952,42 +1004,71 @@ function PasswordScreen({ title, onDone, onBack }: { title: string; onDone: () =
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div>
           <div style={{ position: 'relative' }}>
-            <input className="input-field" placeholder="New password" value={password} onChange={e => { setPassword(e.target.value); setError('') }} type={showPass ? 'text' : 'password'} style={{ paddingRight: 48 }} />
+            <input ref={passwordRef} className="input-field" placeholder="New password" onChange={() => setError('')} type={showPass ? 'text' : 'password'} autoComplete="new-password" style={{ paddingRight: 48 }} />
             <button onClick={() => setShowPass(!showPass)} style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.5)', fontSize: 16 }}>{showPass ? '🙈' : '👁️'}</button>
           </div>
-          {password && <PasswordStrength password={password} />}
         </div>
-        <input className="input-field" placeholder="Confirm password" value={confirm} onChange={e => { setConfirm(e.target.value); setError('') }} type="password" />
+        <input ref={confirmRef} className="input-field" placeholder="Confirm password" onChange={() => setError('')} type="password" autoComplete="new-password" />
         {error && <p style={{ color: '#e74c3c', fontSize: 13, margin: 0 }}>⚠️ {error}</p>}
-        <button className="btn-primary" onClick={handleDone} style={{ marginTop: 8 }}>Set Password →</button>
+        <button className="btn-primary" onClick={handleDone} disabled={loading} style={{ marginTop: 8, opacity: loading ? 0.6 : 1 }}>Set Password →</button>
       </div>
     </div>
   )
 }
 
 // Screen 9 — Profile Setup
-function ProfileScreen({ defaultName, onDone, onBack }: { defaultName: string; onDone: (name: string, username: string) => void; onBack: () => void }) {
+function ProfileScreen({ defaultName, defaultUsername, defaultLanguage, onDone, onBack }: {
+  defaultName: string
+  defaultUsername: string
+  defaultLanguage: string
+  onDone: (profile: ProfileInput) => Promise<void>
+  onBack: () => void
+}) {
   const [name, setName] = useState(defaultName)
-  const [username, setUsername] = useState('')
+  const [username, setUsername] = useState(defaultUsername)
   const [bio, setBio] = useState('')
   const [country, setCountry] = useState('')
   const [city, setCity] = useState('')
   const [website, setWebsite] = useState('')
   const [timezone, setTimezone] = useState('UTC+3 Nairobi')
-  const [preferredLang, setPreferredLang] = useState('en')
+  const [preferredLang, setPreferredLang] = useState(defaultLanguage)
   const [portfolio, setPortfolio] = useState('')
   const [socials, setSocials] = useState<Record<string, string>>({})
   const [showSocials, setShowSocials] = useState(false)
   const [hasCover, setHasCover] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const [avatarColor] = useState(['#1e6091', '#ca6f1e', '#0e6655', '#6c3483'][Math.floor(Math.random() * 4)])
 
   const fieldsCompleted = [name, username, bio, country, city, website].filter(Boolean).length
   const completionPct = Math.min(100, Math.round((fieldsCompleted / 6) * 60 + (hasCover ? 20 : 0) + (Object.values(socials).some(Boolean) ? 20 : 0)))
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    const normalizedUsername = username.trim().replace(/^@+/, '').toLowerCase()
+    if (!name.trim()) { setError('Full name is required.'); return }
+    if (!/^[a-z0-9_]{3,30}$/.test(normalizedUsername)) {
+      setError('Username must be 3–30 characters and use letters, numbers, or underscores.')
+      return
+    }
     setLoading(true)
-    setTimeout(() => { setLoading(false); onDone(name, username) }, 1200)
+    setError('')
+    try {
+      await onDone({
+        display_name: name.trim(),
+        username: normalizedUsername,
+        bio: bio.trim(),
+        country: country.trim(),
+        city: city.trim(),
+        website: website.trim(),
+        social_links: Object.fromEntries(Object.entries(socials).filter(([, value]) => value.trim())),
+        preferred_language: preferredLang,
+        timezone,
+      })
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : 'Unable to save your profile.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -1102,8 +1183,9 @@ function ProfileScreen({ defaultName, onDone, onBack }: { defaultName: string; o
             Fields marked * are required. Everything else can be added later.
           </p>
 
-          <button className="btn-primary" onClick={handleSave}>Save & Continue →</button>
-          <button onClick={() => onDone(name, username)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 14, padding: '8px 0' }}>
+          {error && <p role="alert" style={{ color: '#ec7063', fontSize: 13, margin: 0 }}>{error}</p>}
+          <button className="btn-primary" onClick={handleSave} disabled={loading} style={{ opacity: loading ? 0.6 : 1 }}>Save & Continue →</button>
+          <button onClick={handleSave} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 14, padding: '8px 0' }}>
             Skip for now
           </button>
         </div>
@@ -1375,68 +1457,64 @@ function SuccessScreen({ name, onExplore, onCompletePassport }: { name: string; 
 }
 
 // Screen — Forgot Password (proper component)
-function ForgotPasswordScreen({ onSend, onBack }: { onSend: () => void; onBack: () => void }) {
+function ForgotPasswordScreen({ onSend, onBack }: { onSend: (email: string) => Promise<void>; onBack: () => void }) {
   const [contact, setContact] = useState('')
-  const [method, setMethod] = useState<'email' | 'phone'>('email')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [sent, setSent] = useState(false)
 
-  const handleSend = () => {
-    if (!contact.trim()) { setError('Please enter your email or phone number'); return }
-    if (method === 'email' && !/\S+@\S+\.\S+/.test(contact)) { setError('Enter a valid email address'); return }
+  const handleSend = async () => {
+    if (!contact.trim()) { setError('Please enter your email address'); return }
+    if (!/\S+@\S+\.\S+/.test(contact)) { setError('Enter a valid email address'); return }
     setError('')
     setLoading(true)
-    setTimeout(() => { setLoading(false); onSend() }, 1400)
+    try {
+      await onSend(contact)
+      setSent(true)
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : 'Unable to send a recovery email.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
     <div style={{ minHeight: '100vh', background: '#0a1628', padding: '56px 24px 40px' }}>
-      {loading && <LoadingOverlay message="Sending reset code…" sub="Check your inbox in a moment" />}
+      {loading && <LoadingOverlay message="Sending recovery email…" sub="Check your inbox in a moment" />}
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 40 }}>
         <BackButton onClick={onBack} />
         <div>
           <h2 style={{ fontFamily: 'DM Serif Display, serif', fontSize: 26, color: 'white', margin: 0 }}>Forgot Password</h2>
-          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', margin: '4px 0 0' }}>We'll send a secure reset code</p>
+          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', margin: '4px 0 0' }}>We'll send a secure recovery email</p>
         </div>
       </div>
 
       <div style={{ textAlign: 'center', marginBottom: 36 }}>
         <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'rgba(41,128,185,0.15)', border: '2px solid rgba(41,128,185,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36, margin: '0 auto 16px' }}>🔑</div>
         <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: 15, lineHeight: 1.6, margin: 0 }}>
-          Enter the email or phone number linked to your account and we'll send you a verification code.
+          Enter the email linked to your account. We'll send a recovery link that lets you choose a new password.
         </p>
-      </div>
-
-      {/* Method toggle */}
-      <div style={{ display: 'flex', background: 'rgba(255,255,255,0.06)', borderRadius: 12, padding: 4, marginBottom: 20 }}>
-        {(['email', 'phone'] as const).map(m => (
-          <button key={m} onClick={() => { setMethod(m); setContact(''); setError('') }} style={{
-            flex: 1, padding: '10px', borderRadius: 10, border: 'none', cursor: 'pointer',
-            background: method === m ? '#1e6091' : 'transparent',
-            color: 'white', fontFamily: 'Outfit, sans-serif', fontSize: 14, fontWeight: 600,
-            transition: 'all 0.2s ease',
-          }}>{m === 'email' ? '📧 Email' : '📱 Phone'}</button>
-        ))}
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <div>
           <input
             className="input-field"
-            placeholder={method === 'email' ? 'Email address' : 'Phone number (+254...)'}
+            placeholder="Email address"
             value={contact}
             onChange={e => { setContact(e.target.value); setError('') }}
-            type={method === 'email' ? 'email' : 'tel'}
+            type="email"
             autoFocus
           />
           {error && <p style={{ color: '#e74c3c', fontSize: 12, margin: '6px 0 0' }}>⚠ {error}</p>}
         </div>
 
-        <button className="btn-primary" onClick={handleSend}>Send Reset Code →</button>
+        {sent && <p role="status" style={{ color: '#1abc9c', fontSize: 13 }}>Recovery email sent. Open its link here to continue.</p>}
+        <button className="btn-primary" onClick={handleSend} disabled={loading} style={{ opacity: loading ? 0.6 : 1 }}>Send Recovery Email →</button>
 
         <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '14px 16px' }}>
           <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, margin: 0, lineHeight: 1.5 }}>
-            🔒 For security, we'll verify your identity before resetting your password. The code expires in 10 minutes.
+            🔒 For security, open the recovery link in this browser before choosing a new password.
           </p>
         </div>
 
@@ -1583,8 +1661,15 @@ function OfflineAuthScreen({ onRetry, onBack }: { onRetry: () => void; onBack: (
 }
 
 // Screen — Role-Specific Onboarding
-function RoleOnboardingScreen({ role, onDone, onBack }: { role: Role | null; onDone: () => void; onBack: () => void }) {
+function RoleOnboardingScreen({ role, organizationName, onDone, onBack }: {
+  role: Role | null
+  organizationName: string
+  onDone: (focus: string[], organizationName: string) => void
+  onBack: () => void
+}) {
   const [selected, setSelected] = useState<string[]>([])
+  const [orgName, setOrgName] = useState(organizationName)
+  const [error, setError] = useState('')
 
   const config = role ? ROLE_DISCIPLINES[role] : ROLE_DISCIPLINES.viewer
 
@@ -1602,6 +1687,21 @@ function RoleOnboardingScreen({ role, onDone, onBack }: { role: Role | null; onD
       <ProgressBar step={2} total={5} />
 
       <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14, margin: '24px 0 20px', lineHeight: 1.5 }}>{config.subtitle}</p>
+
+      {role === 'organization' && (
+        <div style={{ marginBottom: 18 }}>
+          <input
+            className="input-field"
+            value={orgName}
+            onChange={event => { setOrgName(event.target.value); setError('') }}
+            placeholder="Organization name"
+            aria-label="Organization name"
+          />
+          <p style={{ color: 'rgba(255,255,255,0.38)', fontSize: 12, margin: '6px 2px 0' }}>
+            The signed-in account will own this organization.
+          </p>
+        </div>
+      )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 32 }}>
         {config.options.map(opt => {
@@ -1641,10 +1741,29 @@ function RoleOnboardingScreen({ role, onDone, onBack }: { role: Role | null; onD
         </div>
       </div>
 
-      <button className="btn-primary" onClick={onDone} style={{ opacity: selected.length > 0 ? 1 : 0.4 }}>Continue →</button>
-      <button onClick={onDone} style={{ display: 'block', background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', cursor: 'pointer', fontSize: 14, padding: '12px 0', width: '100%', textAlign: 'center' }}>
-        Skip this step
+      {error && <p role="alert" style={{ color: '#ec7063', fontSize: 13 }}>{error}</p>}
+      <button
+        className="btn-primary"
+        onClick={() => {
+          if (role === 'organization' && orgName.trim().length < 2) {
+            setError('Enter an organization name to continue.')
+            return
+          }
+          if (role === 'organization' && selected.length === 0) {
+            setError('Choose an organization type to continue.')
+            return
+          }
+          onDone(selected, orgName.trim())
+        }}
+        style={{ opacity: selected.length > 0 || role !== 'organization' ? 1 : 0.4 }}
+      >
+        Continue →
       </button>
+      {role !== 'organization' && (
+        <button onClick={() => onDone(selected, orgName.trim())} style={{ display: 'block', background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', cursor: 'pointer', fontSize: 14, padding: '12px 0', width: '100%', textAlign: 'center' }}>
+          Skip this step
+        </button>
+      )}
     </div>
   )
 }
@@ -1662,7 +1781,7 @@ type StreamingView =
   | { type: 'search' }
   | { type: 'share'; item: ContentItem }
 
-function StreamingHomeInner({ name, username, role, onOpenStudio, onOpenPassport, onOpenWallet, onOpenConnect, onOpenNotifications, onOpenHub, onOpenAI, onOpenLearn }: { name: string; username: string; role: Role | null; onOpenStudio?: () => void; onOpenPassport?: () => void; onOpenWallet?: (target?: string) => void; onOpenConnect?: () => void; onOpenNotifications?: () => void; onOpenHub?: () => void; onOpenAI?: () => void; onOpenLearn?: () => void }) {
+function StreamingHomeInner({ name, username, role, onOpenStudio, onOpenPassport, onOpenWallet, onOpenConnect, onOpenNotifications, onOpenHub, onOpenAI, onOpenLearn, onSignOut, onSignIn }: { name: string; username: string; role: Role | null; onOpenStudio?: () => void; onOpenPassport?: () => void; onOpenWallet?: (target?: string) => void; onOpenConnect?: () => void; onOpenNotifications?: () => void; onOpenHub?: () => void; onOpenAI?: () => void; onOpenLearn?: () => void; onSignOut?: () => Promise<void>; onSignIn?: () => void }) {
   const [activeTab, setActiveTab] = useState('home')
   const [coinBalance, setCoinBalance] = useState(285)
   const [view, setView] = useState<StreamingView>({ type: 'tabs' })
@@ -1861,8 +1980,8 @@ function StreamingHomeInner({ name, username, role, onOpenStudio, onOpenPassport
         )}
         {activeTab === 'profile' && (
           <ProfileTab
-            name={platformState.profile.name || name}
-            username={platformState.profile.username || username}
+            name={name}
+            username={username}
             role={role}
             coinBalance={coinBalance}
             onPremium={() => { toast.show('Opening Premium plans in your Wallet…', 'info'); onOpenWallet?.('subscriptions') }}
@@ -1878,6 +1997,8 @@ function StreamingHomeInner({ name, username, role, onOpenStudio, onOpenPassport
             onOpenHub={onOpenHub}
             onOpenAI={onOpenAI}
             onOpenLearn={onOpenLearn}
+            onSignOut={onSignOut}
+            onSignIn={onSignIn}
           />
         )}
       </div>
@@ -1927,23 +2048,36 @@ function StreamingHomeInner({ name, username, role, onOpenStudio, onOpenPassport
   )
 }
 
-function StreamingHome({ name, username, role, onOpenStudio, onOpenPassport, onOpenWallet, onOpenConnect, onOpenNotifications, onOpenHub, onOpenAI, onOpenLearn }: { name: string; username: string; role: Role | null; onOpenStudio?: () => void; onOpenPassport?: () => void; onOpenWallet?: (target?: string) => void; onOpenConnect?: () => void; onOpenNotifications?: () => void; onOpenHub?: () => void; onOpenAI?: () => void; onOpenLearn?: () => void }) {
+function StreamingHome({ name, username, role, onOpenStudio, onOpenPassport, onOpenWallet, onOpenConnect, onOpenNotifications, onOpenHub, onOpenAI, onOpenLearn, onSignOut, onSignIn }: { name: string; username: string; role: Role | null; onOpenStudio?: () => void; onOpenPassport?: () => void; onOpenWallet?: (target?: string) => void; onOpenConnect?: () => void; onOpenNotifications?: () => void; onOpenHub?: () => void; onOpenAI?: () => void; onOpenLearn?: () => void; onSignOut?: () => Promise<void>; onSignIn?: () => void }) {
   return (
     <ToastProvider>
-      <StreamingHomeInner name={name} username={username} role={role} onOpenStudio={onOpenStudio} onOpenPassport={onOpenPassport} onOpenWallet={onOpenWallet} onOpenConnect={onOpenConnect} onOpenNotifications={onOpenNotifications} onOpenHub={onOpenHub} onOpenAI={onOpenAI} onOpenLearn={onOpenLearn} />
+      <StreamingHomeInner name={name} username={username} role={role} onOpenStudio={onOpenStudio} onOpenPassport={onOpenPassport} onOpenWallet={onOpenWallet} onOpenConnect={onOpenConnect} onOpenNotifications={onOpenNotifications} onOpenHub={onOpenHub} onOpenAI={onOpenAI} onOpenLearn={onOpenLearn} onSignOut={onSignOut} onSignIn={onSignIn} />
     </ToastProvider>
   )
 }
 
 // ─── Main App ─────────────────────────────────────────────────────────────────
 export default function App() {
+  return (
+    <AuthProvider>
+      <PlatformProvider>
+        <AppContent />
+      </PlatformProvider>
+    </AuthProvider>
+  )
+}
+
+function AppContent() {
+  const auth = useAuth()
   const [state, setState] = useState<AppState>({
     screen: 'splash',
     language: 'en',
     role: null,
     interests: [],
-    fromForgot: false,
-    otpPurpose: 'register',
+    authMethod: 'email',
+    roleFocus: [],
+    organizationName: '',
+    organizationType: '',
     name: '',
     username: '',
     email: '',
@@ -1955,10 +2089,135 @@ export default function App() {
     walletTarget: '',
     postSetup: 'home',
   })
+  const [operationError, setOperationError] = useState('')
+  const [splashFinished, setSplashFinished] = useState(false)
+  const initialRouteHandled = useRef(false)
+  const recoveryRouteHandled = useRef(false)
 
   const go = useCallback((screen: Screen, extra?: Partial<AppState>) => {
     setState(prev => ({ ...prev, screen, ...extra }))
   }, [])
+
+  useEffect(() => {
+    if (auth.recoveryRequested && !recoveryRouteHandled.current) {
+      recoveryRouteHandled.current = true
+      go('password')
+      return
+    }
+    if (auth.loading || !splashFinished || initialRouteHandled.current || state.screen !== 'splash') return
+    initialRouteHandled.current = true
+    if (auth.isAuthenticated) {
+      const destination = !auth.profile?.username || auth.roles.length === 0
+        ? 'profile'
+        : auth.onboardingCompleted
+          ? state.postSetup
+          : 'role'
+      go(destination, {
+        name: auth.profile?.display_name ?? '',
+        username: auth.profile?.username ?? '',
+      })
+    } else {
+      go('welcome')
+    }
+  }, [auth.loading, auth.isAuthenticated, auth.profile, auth.roles, auth.onboardingCompleted, auth.recoveryRequested, splashFinished, state.screen, state.postSetup, go])
+
+  useEffect(() => {
+    if (!auth.recoveryRequested) recoveryRouteHandled.current = false
+  }, [auth.recoveryRequested])
+
+  useEffect(() => {
+    if (auth.loading || !auth.isAuthenticated || auth.recoveryRequested) return
+    if (state.screen !== 'signin' && state.screen !== 'register' && state.screen !== 'otp') return
+    const destination = !auth.profile?.username || auth.roles.length === 0
+      ? 'profile'
+      : auth.onboardingCompleted
+        ? state.postSetup
+        : 'role'
+    go(destination, {
+      name: auth.profile?.display_name ?? '',
+      username: auth.profile?.username ?? '',
+    })
+  }, [
+    auth.loading,
+    auth.isAuthenticated,
+    auth.profile,
+    auth.roles,
+    auth.onboardingCompleted,
+    auth.recoveryRequested,
+    state.screen,
+    state.postSetup,
+    go,
+  ])
+
+  useEffect(() => {
+    if (!auth.loading && !auth.isAuthenticated && PROTECTED_SCREENS.includes(state.screen)) {
+      go('signin', { postSetup: state.screen })
+    }
+  }, [auth.loading, auth.isAuthenticated, state.screen, go])
+
+  const register = async (input: {
+    name: string
+    username: string
+    method: ContactMethod
+    contact: string
+    password: string
+  }) => {
+    const hasSession = await auth.signUp({
+      method: input.method,
+      contact: input.contact,
+      password: input.password,
+      displayName: input.name,
+      username: input.username,
+    })
+    go(hasSession ? 'profile' : 'otp', {
+      name: input.name,
+      username: input.username.trim().replace(/^@+/, '').toLowerCase(),
+      email: input.contact,
+      authMethod: input.method,
+      role: null,
+      interests: [],
+      roleFocus: [],
+      organizationName: '',
+      organizationType: '',
+    })
+    return hasSession
+  }
+
+  const beginOAuth = (provider: 'google' | 'apple' | 'facebook') => auth.signInWithOAuth(provider)
+
+  const signIn = async (contact: string, password: string) => {
+    await auth.signIn(contact, password)
+  }
+
+  const openProtectedScreen = (screen: Screen, extra?: Partial<AppState>) => {
+    if (auth.isAuthenticated) {
+      go(screen, extra)
+    } else {
+      go('signin', { postSetup: screen, ...extra })
+    }
+  }
+
+  const saveProfile = async (profile: ProfileInput) => {
+    await auth.saveProfile(profile)
+    go('role', { name: profile.display_name, username: profile.username ?? '' })
+  }
+
+  const finishOnboarding = async () => {
+    if (!state.role) {
+      setOperationError('Choose a role before completing onboarding.')
+      return
+    }
+    setOperationError('')
+    try {
+      if (state.role === 'organization') {
+        await auth.createOrganization(state.organizationName, state.organizationType)
+      }
+      await auth.saveOnboarding(state.role, state.interests, state.roleFocus)
+      go('success')
+    } catch (failure) {
+      setOperationError(failure instanceof Error ? failure.message : 'Unable to save onboarding.')
+    }
+  }
 
   const toggleInterest = (i: string) => {
     setState(prev => ({
@@ -1969,51 +2228,88 @@ export default function App() {
     }))
   }
 
-  const { screen, language, role, interests, otpPurpose, name } = state
+  const { screen, language, interests, name } = state
+  const role = state.role ?? auth.roles[0] ?? null
+  const displayName = auth.profile?.display_name || name
 
   return (
-    <PlatformProvider>
     <div style={{ maxWidth: 430, margin: '0 auto', minHeight: '100vh', position: 'relative', overflow: 'hidden', background: '#0a1628' }}>
-      {screen === 'splash' && <SplashScreen onDone={() => go('welcome')} />}
+      {auth.profileError && (
+        <div role="alert" style={{ position: 'fixed', top: 8, left: 8, right: 8, zIndex: 300, padding: 12, borderRadius: 10, background: '#6e2c00', color: 'white', fontSize: 12 }}>
+          Account data could not be loaded: {auth.profileError}
+        </div>
+      )}
+      {operationError && (
+        <div role="alert" style={{ position: 'fixed', top: 8, left: 8, right: 8, zIndex: 300, padding: 12, borderRadius: 10, background: '#6e2c00', color: 'white', fontSize: 12 }}>
+          {operationError}
+          <button onClick={() => setOperationError('')} aria-label="Dismiss error" style={{ float: 'right', color: 'white', background: 'none', border: 0 }}>×</button>
+        </div>
+      )}
+      {screen === 'splash' && <SplashScreen onDone={() => setSplashFinished(true)} />}
       {screen === 'welcome' && <WelcomeScreen onGetStarted={() => go('language')} onSignIn={() => go('signin')} />}
       {screen === 'language' && <LanguageScreen selected={language} onSelect={l => setState(p => ({ ...p, language: l }))} onContinue={() => go('register')} onBack={() => go('welcome')} />}
-      {screen === 'register' && <RegisterScreen onRegister={(n, e) => go('otp', { otpPurpose: 'register', name: n, email: e })} onSignIn={() => go('signin')} onBack={() => go('language')} />}
+      {screen === 'register' && <RegisterScreen onRegister={register} onOAuth={beginOAuth} onSignIn={() => go('signin')} onBack={() => go('language')} />}
       {screen === 'signin' && (
         <SignInScreen
-          onSignIn={() => go('otp', { otpPurpose: 'signin' })}
+          onSignIn={signIn}
+          onOAuth={beginOAuth}
+          onMagicLink={auth.sendMagicLink}
           onRegister={() => go('register')}
           onForgot={() => go('forgot')}
           onBack={() => go('welcome')}
-          onLocked={() => go('locked')}
         />
       )}
       {screen === 'otp' && (
         <OTPScreen
-          purpose={otpPurpose}
-          email={state.email}
-          onVerify={() => {
-            if (otpPurpose === 'forgot') go('password')
-            else if (otpPurpose === 'signin') go('account-setup')
-            else go('password')
+          contact={state.email}
+          method={state.authMethod}
+          onVerify={async token => {
+            await auth.verifyOtp(state.email, state.authMethod, token)
+            go('profile')
           }}
-          onBack={() => go(otpPurpose === 'register' ? 'register' : otpPurpose === 'forgot' ? 'forgot' : 'signin')}
-          onChangeContact={() => go(otpPurpose === 'register' ? 'register' : 'signin')}
+          onResend={() => auth.resendOtp(state.email, state.authMethod)}
+          onBack={() => go('register')}
+          onChangeContact={() => go('register')}
         />
       )}
-      {screen === 'forgot' && <ForgotPasswordScreen onSend={() => go('otp', { otpPurpose: 'forgot' })} onBack={() => go('signin')} />}
-      {screen === 'password' && <PasswordScreen title={otpPurpose === 'forgot' ? 'New Password' : 'Create Password'} onDone={() => go(otpPurpose === 'forgot' ? 'signin' : 'profile')} onBack={() => go('otp')} />}
-      {screen === 'profile' && <ProfileScreen defaultName={name} onDone={(n, u) => go('role', { name: n, username: u })} onBack={() => go('password')} />}
+      {screen === 'forgot' && <ForgotPasswordScreen onSend={auth.requestPasswordReset} onBack={() => go('signin')} />}
+      {screen === 'password' && <PasswordScreen title="New Password" onDone={async password => { await auth.updatePassword(password); go('home') }} onBack={() => { auth.clearRecoveryRequest(); go('signin') }} />}
+      {screen === 'profile' && (
+        <ProfileScreen
+          defaultName={auth.profile?.display_name || name}
+          defaultUsername={auth.profile?.username || state.username}
+          defaultLanguage={language}
+          onDone={saveProfile}
+          onBack={() => go('signin')}
+        />
+      )}
       {screen === 'role' && <RoleScreen onSelect={r => go('role-onboarding', { role: r })} onBack={() => go('profile')} />}
-      {screen === 'role-onboarding' && <RoleOnboardingScreen role={role} onDone={() => go('interests')} onBack={() => go('role')} />}
+      {screen === 'role-onboarding' && <RoleOnboardingScreen
+        role={role}
+        organizationName={state.organizationName}
+        onDone={(focus, organizationName) => go('interests', {
+          roleFocus: focus,
+          organizationName,
+          organizationType: role === 'organization' ? focus[0] ?? '' : '',
+        })}
+        onBack={() => go('role')}
+      />}
       {screen === 'interests' && <InterestsScreen selected={interests} onToggle={toggleInterest} onDone={() => go('permissions')} onBack={() => go('role-onboarding')} />}
       {screen === 'permissions' && <PermissionsScreen onDone={() => go('onboarding')} onBack={() => go('interests')} />}
-      {screen === 'onboarding' && <OnboardingScreen onDone={() => go('success')} onBack={() => go('permissions')} />}
-      {screen === 'success' && <SuccessScreen name={name} onExplore={() => go('account-setup', { postSetup: 'home' })} onCompletePassport={() => go('account-setup', { postSetup: 'passport' })} />}
+      {screen === 'onboarding' && <OnboardingScreen onDone={() => void finishOnboarding()} onBack={() => go('permissions')} />}
+      {screen === 'success' && <SuccessScreen name={displayName} onExplore={() => go('account-setup', { postSetup: 'home' })} onCompletePassport={() => openProtectedScreen('passport')} />}
       {screen === 'account-setup' && <AccountSetupScreen onDone={() => go(state.postSetup)} />}
       {screen === 'locked' && <AccountLockedScreen onBack={() => go('signin')} onSupport={() => go('signin')} />}
       {screen === 'offline-auth' && <OfflineAuthScreen onRetry={() => go('signin')} onBack={() => go('welcome')} />}
-      {screen === 'home' && <StreamingHome name={name} username={state.username} role={role} onOpenStudio={() => go('studio')} onOpenPassport={() => go('passport')} onOpenWallet={(target) => go('wallet', { walletTarget: target || '' })} onOpenConnect={() => go('connect')} onOpenNotifications={() => go('notifications')} onOpenHub={() => go('hub')} onOpenAI={() => go('ai')} onOpenLearn={() => go('learn')} />}
-      {screen === 'studio' && <StudioShell userName={name || 'Creator'} onExit={() => go('home')} />}
+      {screen === 'home' && <StreamingHome name={displayName} username={auth.profile?.username ?? ''} role={role} onOpenStudio={() => openProtectedScreen('studio')} onOpenPassport={() => openProtectedScreen('passport')} onOpenWallet={(target) => openProtectedScreen('wallet', { walletTarget: target || '' })} onOpenConnect={() => openProtectedScreen('connect')} onOpenNotifications={() => openProtectedScreen('notifications')} onOpenHub={() => openProtectedScreen('hub')} onOpenAI={() => openProtectedScreen('ai')} onOpenLearn={() => openProtectedScreen('learn')} onSignIn={() => go('signin')} onSignOut={auth.isAuthenticated ? async () => {
+        try {
+          await auth.signOut()
+          go('welcome')
+        } catch (failure) {
+          setOperationError(failure instanceof Error ? failure.message : 'Unable to sign out.')
+        }
+      } : undefined} />}
+      {screen === 'studio' && <StudioShell userName={displayName || 'Creator'} onExit={() => go('home')} />}
       {screen === 'passport' && <PassportShell onExit={() => go('home')} />}
       {screen === 'wallet' && <WalletShell onExit={() => go('home', { walletTarget: '' })} initialScreen={(state.walletTarget || 'root') as any} />}
       {screen === 'connect' && <ConnectShell onExit={() => go('home')} />}
@@ -2022,6 +2318,5 @@ export default function App() {
       {screen === 'ai' && <AIShell onExit={() => go('home')} />}
       {screen === 'learn' && <LearnShell onExit={() => go('home')} />}
     </div>
-    </PlatformProvider>
   )
 }

@@ -19,6 +19,8 @@ type Props = {
   onOpenHub?: () => void
   onOpenAI?: () => void
   onOpenLearn?: () => void
+  onSignOut?: () => Promise<void>
+  onSignIn?: () => void
 }
 
 const PLAN_FEATURES = ['Ad-free viewing', 'Offline downloads', '4K & 1080p quality', 'Early access to originals', 'Exclusive content', 'Stream on 3 devices', 'Creator Analytics (Creator role)']
@@ -31,7 +33,7 @@ const PLANS = [
 
 const ROLE_EMOJIS: Record<string, string> = { viewer: '🎬', creator: '🎥', organization: '🏢', student: '🎓', educator: '📚' }
 
-export default function ProfileTab({ name, username, role, coinBalance, onPremium, onOpenWatchlist, onOpenHistory, onOpenAIRecs, onOpenOffline, onOpenStudio, onOpenPassport, onOpenWallet, onOpenConnect, onOpenNotifications, onOpenHub, onOpenAI, onOpenLearn }: Props) {
+export default function ProfileTab({ name, username, role, coinBalance, onPremium, onOpenWatchlist, onOpenHistory, onOpenAIRecs, onOpenOffline, onOpenStudio, onOpenPassport, onOpenWallet, onOpenConnect, onOpenNotifications, onOpenHub, onOpenAI, onOpenLearn, onSignOut, onSignIn }: Props) {
   const [activeSection, setActiveSection] = useState<null | 'premium' | 'history' | 'watchlist' | 'notifications'>(null)
   const [selectedPlan, setSelectedPlan] = useState('annual')
   const [isPremium] = useState(false)
@@ -261,7 +263,7 @@ export default function ProfileTab({ name, username, role, coinBalance, onPremiu
           { icon: '♿', label: 'Accessibility', action: () => {} },
           { icon: '🔒', label: 'Privacy & Security', action: () => {} },
           { icon: '❓', label: 'Help & Support', action: () => {} },
-          { icon: '🚪', label: 'Sign Out', action: () => {}, danger: true },
+          { icon: '🚪', label: onSignOut ? 'Sign Out' : 'Sign In', action: () => { if (onSignOut) void onSignOut(); else onSignIn?.() }, danger: Boolean(onSignOut) },
         ].map(item => (
           <button key={item.label} onClick={item.action} style={{
             display: 'flex', alignItems: 'center', gap: 16, width: '100%',
